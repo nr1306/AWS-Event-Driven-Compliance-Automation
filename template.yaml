@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AWS Event-Driven Compliance Automation for EBS Volumes (gp2 → gp3)
+
+Globals:
+  Function:
+    Runtime: python3.9
+    Timeout: 30
+    MemorySize: 128
+
+Resources:
+
+  EbsComplianceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ebs-compliance-lambda
+      Handler: lambda_function.lambda_handler
+      CodeUri: ./
+      Description: Converts gp2 EBS volumes to gp3 upon creation
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ec2:DescribeVolumes
+                - ec2:ModifyVolume
+              Resource: "*"
+        - AWSLambdaBasicExecutionRole
+      Events:
+        EbsVolumeCreatedRule:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source:
+                - "aws.ec2"
+              detail-type:
+                - "EBS Volume Notification"
+              detail:
+                event:
+                  - "createVolume"
+            EventBusName: default
+
+Outputs:
+  LambdaFunctionName:
+    Description: "Name of the Lambda Function"
+    Value: !Ref EbsComplianceFunction
+  LambdaFunctionArn:
+    Description: "ARN of the Lambda Function"
+    Value: !GetAtt EbsComplianceFunction.Arn
